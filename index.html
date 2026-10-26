@@ -1,0 +1,746 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Central de Alertas Fadiga</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<script>
+  /* ============ CONFIGURAÇÃO — dados do projeto Supabase ============ */
+  window.SUPABASE_URL = "https://xafbnwjxypdzizntkboh.supabase.co";
+  window.SUPABASE_KEY = "sb_publishable_PQhSXGWpCE77hQ32vwUIDg_ThiBaZPw";
+</script>
+<style>
+:root{
+  --bg:#f3f5f9; --surface:#ffffff; --sunk:#e8ecf3; --line:#d2d9e4;
+  --fg:#131b2b; --muted:#56627a; --accent:#1e3a6e; --accent-fg:#ffffff;
+  --warn:#b26a00; --warn-bg:#fff3dd; --info:#6b4fbb; --info-bg:#efebfa; --ok:#1f7a3f; --ok-bg:#e3f4e8; --bad:#b3261e; --bad-bg:#fbe6e4;
+  --bar-total:#a6b0c2;
+  --f-display:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0e131c; --surface:#161d29; --sunk:#0a0f17; --line:#283244; --fg:#e2e8f2; --muted:#93a0b6;
+  --accent:#8fb0e6; --accent-fg:#0b1426; --warn:#f0a73a; --warn-bg:#33270f; --info:#b4a3f0; --info-bg:#271f45;
+  --ok:#5ccf86; --ok-bg:#13301e; --bad:#f2817a; --bad-bg:#3a1714; --bar-total:#4d5a70; color-scheme:dark}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.45}
+.wrap{max-width:1180px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:20px}
+header.bar{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--f-display);font-weight:700;font-size:1.9rem;line-height:1.05;margin:0;letter-spacing:.01em;text-wrap:balance}
+.sub{color:var(--muted);margin:4px 0 0}
+.who{display:flex;flex-wrap:wrap;align-items:center;gap:6px;justify-content:flex-end;font-size:.88rem}
+.role{font-family:var(--f-display);font-weight:600;text-transform:uppercase;letter-spacing:.08em;font-size:.72rem;padding:3px 8px;border-radius:4px;background:var(--sunk)}
+.role.acc{background:var(--accent);color:var(--accent-fg)}
+.navrow{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between;border-bottom:1px solid var(--line)}
+.tabs{display:flex;gap:4px}
+.tab{background:none;border:0;border-bottom:3px solid transparent;padding:8px 14px;font-family:var(--f-display);font-weight:600;font-size:1rem;color:var(--muted);letter-spacing:.03em;border-radius:0}
+.tab[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--accent)}
+.periodo{display:flex;align-items:center;gap:8px;padding-bottom:6px;font-size:.85rem;color:var(--muted)}
+.periodo select{width:auto}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.stat{background:var(--surface);padding:12px 14px;display:grid;gap:2px;border:0;text-align:left;font:inherit;color:inherit;cursor:pointer;border-radius:0}
+.stat[aria-pressed="true"]{background:var(--sunk)}
+.stat .n{font-family:var(--f-display);font-weight:700;font-size:1.9rem;line-height:1;font-variant-numeric:tabular-nums}
+.stat .l{font-size:.75rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+.stat.pend .n{color:var(--warn)} .stat.rh .n{color:var(--info)} .stat.ok .n{color:var(--ok)}
+.main{display:grid;grid-template-columns:340px minmax(0,1fr);gap:20px;align-items:start}
+.main.solo{grid-template-columns:minmax(0,1fr)}
+@media (max-width:860px){.main{grid-template-columns:minmax(0,1fr)}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.col{display:grid;gap:12px;min-width:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px;display:grid;gap:12px;min-width:0}
+h2{font-family:var(--f-display);font-weight:600;font-size:1.15rem;margin:0;letter-spacing:.02em}
+label,.lbl{display:grid;gap:4px;font-size:.8rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+input,select,textarea{font:inherit;font-size:.95rem;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:100%;text-transform:none;letter-spacing:0}
+textarea{resize:vertical;min-height:60px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:420px){.row2{grid-template-columns:1fr}}
+button{font:inherit;cursor:pointer;border-radius:6px}
+.btn{background:var(--accent);color:var(--accent-fg);border:0;padding:10px 14px;font-weight:600}
+.btn.sm{padding:7px 12px;font-size:.88rem}
+.btn:disabled,.ghost:disabled{opacity:.5;cursor:not-allowed}
+.ghost{background:transparent;border:1px solid var(--line);color:var(--fg);padding:6px 10px;font-size:.85rem}
+.ghost:hover{background:var(--sunk)}
+.okb{border-color:var(--ok);color:var(--ok)} .badb{border-color:var(--bad);color:var(--bad)}
+.msg{font-size:.86rem;min-height:1.2em;margin:0}
+.msg.err{color:var(--bad)} .msg.okm{color:var(--ok)}
+.note{font-size:.84rem;color:var(--muted);margin:0}
+.checks{display:flex;flex-wrap:wrap;gap:6px}
+.checks label{display:inline-flex;align-items:center;gap:6px;font-size:.85rem;text-transform:none;letter-spacing:0;color:var(--fg);font-weight:500;background:var(--sunk);padding:4px 10px;border-radius:999px;cursor:pointer}
+.checks input{width:auto;margin:0;accent-color:var(--accent)}
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.filters input{flex:1 1 200px;width:auto}
+.filters select{flex:0 1 180px;width:auto}
+.list{display:grid;gap:10px}
+.item{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:6px;padding:12px 14px;display:grid;gap:8px;min-width:0}
+.item.aguardando_rh{border-left-color:var(--info)} .item.finalizado{border-left-color:var(--ok)}
+.top{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.tags{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip{font-size:.75rem;font-weight:600;padding:2px 8px;border-radius:4px;background:var(--sunk);text-transform:uppercase;letter-spacing:.05em}
+.chip.setor{background:var(--accent);color:var(--accent-fg);font-size:.8rem;padding:3px 10px}
+.pill{font-size:.75rem;font-weight:700;padding:3px 10px;border-radius:999px;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+.pill.pendente{background:var(--warn-bg);color:var(--warn)} .pill.aguardando_rh{background:var(--info-bg);color:var(--info)} .pill.finalizado{background:var(--ok-bg);color:var(--ok)}
+.link{font-family:var(--f-mono);font-size:.82rem;color:var(--accent);overflow-wrap:anywhere;word-break:break-all}
+.meta{font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.obs{font-size:.9rem;margin:0;overflow-wrap:anywhere}
+.box{border-radius:6px;padding:8px 10px;font-size:.88rem;display:grid;gap:3px;background:var(--sunk);overflow-wrap:anywhere}
+.box .k{font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;font-weight:700;color:var(--muted)}
+.box.dev{background:var(--warn-bg)} .box.dev .k{color:var(--warn)}
+.box.fin{background:var(--ok-bg)} .box.fin .k{color:var(--ok)}
+.kv{display:flex;flex-wrap:wrap;gap:4px 16px}
+.kv b{font-weight:600}
+.medida{font-weight:700}
+.medida.justa_causa,.medida.suspensao{color:var(--bad)}
+.acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tform{display:grid;gap:10px;width:100%;border:1px solid var(--line);border-radius:6px;padding:12px;background:var(--bg)}
+.empty{padding:28px 16px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:8px}
+.center{min-height:100vh;display:grid;place-items:center;padding-block:24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.card{width:100%;max-width:380px}
+.brand{font-family:var(--f-display);font-weight:700;font-size:1.6rem;line-height:1.1;margin:0}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+.tbl-wrap table{min-width:560px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600;background:var(--sunk)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tr:last-child td{border-bottom:0}
+tr.inativo td{color:var(--muted)}
+td.mono{font-family:var(--f-mono);font-size:.82rem}
+.status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);margin-right:6px}
+tr.inativo .status-dot{background:var(--muted)}
+.toggle{display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:.9rem;color:var(--fg);font-weight:500}
+.toggle input{width:auto;accent-color:var(--accent)}
+.sync{font-size:.78rem;color:var(--muted)}
+/* painel */
+.dash{display:grid;gap:20px}
+.chart-box{position:relative;height:300px;min-width:0}
+.chart-box svg,#chCons svg{display:block;width:100%;height:100%}
+.ax{fill:var(--muted);font-size:12px;font-family:var(--f-body)}
+.ax.x{fill:var(--fg);font-weight:600}
+.gridl{stroke:var(--line);stroke-width:1}
+.base{stroke:var(--muted);stroke-width:1}
+.vlab{fill:var(--fg);font-size:11px;font-weight:600;font-family:var(--f-body);font-variant-numeric:tabular-nums}
+.b-total{fill:var(--bar-total)} .b-trat{fill:var(--accent)} .b-fin{fill:var(--ok)}
+.d-pend{stroke:var(--warn)} .d-rh{stroke:var(--info)} .d-fin{stroke:var(--ok)} .d-vazio{stroke:var(--sunk)}
+.chart-box rect:hover{opacity:.8}
+.cons{display:grid;grid-template-columns:minmax(0,280px) minmax(0,1fr);gap:24px;align-items:center}
+@media (max-width:700px){.cons{grid-template-columns:minmax(0,1fr)}}
+.donut-box{position:relative;height:240px}
+.donut-center{position:absolute;inset:0;display:grid;place-content:center;text-align:center;pointer-events:none}
+.donut-center .n{font-family:var(--f-display);font-weight:700;font-size:2.2rem;line-height:1}
+.donut-center .l{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.kpi{display:grid;gap:2px}
+.kpi .n{font-family:var(--f-display);font-weight:700;font-size:1.6rem;line-height:1;font-variant-numeric:tabular-nums}
+.kpi .l{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.hbars{display:grid;gap:8px}
+.hbar{display:grid;grid-template-columns:150px minmax(0,1fr) 36px;gap:10px;align-items:center;font-size:.88rem}
+.hbar .track{height:12px;background:var(--sunk);border-radius:3px;overflow:hidden}
+.hbar .fill{height:100%;background:var(--accent);border-radius:3px}
+.hbar .fill.justa_causa,.hbar .fill.suspensao{background:var(--bad)}
+.hbar .fill.improcedente{background:var(--bar-total)}
+.hbar .v{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+@media (max-width:420px){.hbar{grid-template-columns:110px minmax(0,1fr) 30px}}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:.85rem}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.bar-pct{display:inline-block;min-width:40px}
+</style>
+</head>
+<body>
+
+<div class="center" id="vConfig" hidden>
+  <div class="panel card">
+    <p class="brand">Central de Alertas Fadiga</p>
+    <p class="note">Falta configurar o banco. Preencha <b>SUPABASE_URL</b> e <b>SUPABASE_KEY</b> no início do arquivo index.html.</p>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div class="center" id="vLogin" hidden>
+  <form class="panel card" id="fLogin" novalidate>
+    <div>
+      <p class="brand">Central de Alertas Fadiga</p>
+      <p class="note">Entre com seu usuário e senha.</p>
+    </div>
+    <label for="lUser">Usuário<input id="lUser" autocomplete="username" autocapitalize="none" spellcheck="false"></label>
+    <label for="lPass">Senha<input id="lPass" type="password" autocomplete="current-password"></label>
+    <button class="btn" id="lBtn" type="submit">Entrar</button>
+    <p class="msg" id="lMsg" role="status"></p>
+    <p class="note">Esqueceu a senha? Peça ao administrador para definir uma nova.</p>
+  </form>
+</div>
+
+<!-- TROCA DE SENHA -->
+<div class="center" id="vSenha" hidden>
+  <form class="panel card" id="fSenha" novalidate>
+    <div>
+      <p class="brand">Criar nova senha</p>
+      <p class="note" id="sNote">Por segurança, troque a senha provisória antes de continuar.</p>
+    </div>
+    <label for="sAtual">Senha atual<input id="sAtual" type="password" autocomplete="current-password"></label>
+    <label for="sNova">Nova senha (mínimo 6 caracteres)<input id="sNova" type="password" autocomplete="new-password"></label>
+    <label for="sConf">Repita a nova senha<input id="sConf" type="password" autocomplete="new-password"></label>
+    <button class="btn" type="submit" id="sBtn">Salvar senha</button>
+    <button class="ghost" type="button" id="sCancel" hidden>Cancelar</button>
+    <p class="msg" id="sMsg" role="status"></p>
+  </form>
+</div>
+
+<!-- SISTEMA -->
+<div class="wrap" id="vApp" hidden>
+  <header class="bar">
+    <div>
+      <h1>Central de Alertas Fadiga</h1>
+      <p class="sub">Operador registra · gestor do setor aplica a medida · RH finaliza.</p>
+    </div>
+    <div class="who">
+      <b id="whoName"></b><span class="role acc" id="whoRole"></span><span class="role" id="whoSetor"></span>
+      <button class="ghost" id="bSenha" type="button">Alterar senha</button>
+      <button class="ghost" id="bSair" type="button">Sair</button>
+    </div>
+  </header>
+
+  <div class="navrow">
+    <nav class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tAlertas" aria-selected="true">Ocorrências</button>
+      <button class="tab" role="tab" id="tPainel" aria-selected="false">Painel</button>
+      <button class="tab" role="tab" id="tUsuarios" aria-selected="false" hidden>Usuários</button>
+    </nav>
+    <label class="periodo" for="qPeriodo" id="wPeriodo">Período
+      <select id="qPeriodo">
+        <option value="tudo">Tudo</option>
+        <option value="hoje">Hoje</option>
+        <option value="7">Últimos 7 dias</option>
+        <option value="30">Últimos 30 dias</option>
+        <option value="mes">Este mês</option>
+        <option value="mesant">Mês passado</option>
+      </select>
+    </label>
+  </div>
+
+  <!-- Ocorrências -->
+  <section id="pAlertas" style="display:grid;gap:20px">
+    <div class="stats" role="group" aria-label="Filtrar por etapa">
+      <button class="stat" data-f="todos" aria-pressed="true"><span class="n" id="cTodos">0</span><span class="l">Total</span></button>
+      <button class="stat pend" data-f="pendente" aria-pressed="false"><span class="n" id="cPend">0</span><span class="l">Aguardando gestor</span></button>
+      <button class="stat rh" data-f="aguardando_rh" aria-pressed="false"><span class="n" id="cRh">0</span><span class="l">Aguardando RH</span></button>
+      <button class="stat ok" data-f="finalizado" aria-pressed="false"><span class="n" id="cFin">0</span><span class="l">Finalizados</span></button>
+    </div>
+    <div class="main" id="mainAlertas">
+      <form class="panel" id="fNovo" novalidate>
+        <h2>Registrar ocorrência</h2>
+        <label for="iLink">Link do alerta<input id="iLink" type="url" inputmode="url" placeholder="https://…" autocomplete="off"></label>
+        <label for="iSetor">Setor<select id="iSetor"></select></label>
+        <div class="row2">
+          <label for="iTipo">Tipo
+            <select id="iTipo">
+              <option>Sonolência</option><option>Bocejo</option><option>Distração</option>
+              <option>Uso de celular</option><option>Cigarro</option><option>Sem cinto</option>
+              <option>Câmera obstruída</option><option>Outro</option>
+            </select>
+          </label>
+          <label for="iFrota">Frota / placa<input id="iFrota" placeholder="Ex.: 3021" autocomplete="off"></label>
+        </div>
+        <label for="iObs">Observação (opcional)<textarea id="iObs" rows="2" placeholder="Turno, local, contexto…"></textarea></label>
+        <button class="btn" id="bSalvar" type="submit">Registrar ocorrência</button>
+        <p class="msg" id="mNovo" role="status"></p>
+      </form>
+      <div class="col">
+        <div class="filters">
+          <input id="qBusca" type="search" placeholder="Buscar por link, frota, motorista ou observação" aria-label="Buscar">
+          <select id="qSetor" aria-label="Filtrar por setor"></select>
+        </div>
+        <div class="sync" id="sync"></div>
+        <div class="list" id="lista"><div class="empty">Carregando ocorrências…</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Painel -->
+  <section id="pPainel" class="dash" hidden>
+    <div class="panel">
+      <div class="top"><h2>Ocorrências por setor</h2><span class="note" id="dPer"></span></div>
+      <div class="legend" id="lSetor"></div>
+      <div class="chart-box" id="chSetor" role="img" aria-label="Gráfico de ocorrências por setor"></div>
+      <div class="tbl-wrap" style="border:0">
+        <table>
+          <thead><tr><th>Setor</th><th class="num">Total</th><th class="num">Tratados</th><th class="num">% tratados</th><th class="num">Aguard. gestor</th><th class="num">Aguard. RH</th><th class="num">Finalizados</th></tr></thead>
+          <tbody id="tSetor"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Consolidado</h2>
+      <div class="cons">
+        <div class="col" style="gap:10px">
+          <div class="donut-box"><div id="chCons" role="img" aria-label="Gráfico consolidado por etapa" style="height:100%"></div>
+            <div class="donut-center"><span class="n" id="dTotal">0</span><span class="l">ocorrências</span></div></div>
+          <div class="legend" id="dLeg"></div>
+        </div>
+        <div class="col" style="gap:16px">
+          <div class="kpis">
+            <div class="kpi"><span class="n" id="kTrat">0%</span><span class="l">Tratados pelo gestor</span></div>
+            <div class="kpi"><span class="n" id="kFin">0%</span><span class="l">Finalizados pelo RH</span></div>
+            <div class="kpi"><span class="n" id="kTempo">—</span><span class="l">Tempo médio até tratar</span></div>
+          </div>
+          <div class="col" style="gap:8px">
+            <span class="lbl">Medidas aplicadas</span>
+            <div class="hbars" id="dMed"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Usuários -->
+  <section id="pUsuarios" hidden>
+    <div class="main">
+      <form class="panel" id="fUser" novalidate>
+        <h2 id="uTitle">Novo usuário</h2>
+        <label for="uLogin">Usuário (login)<input id="uLogin" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="ex.: joao.silva"></label>
+        <label for="uNome">Nome completo<input id="uNome" autocomplete="off"></label>
+        <label for="uPapel">Função
+          <select id="uPapel">
+            <option value="operador">Operador — registra ocorrências</option>
+            <option value="gestor">Gestor — aplica a medida no seu setor</option>
+            <option value="rh">RH — finaliza as ocorrências (todos os setores)</option>
+            <option value="admin">Administrador — vê tudo e cadastra usuários</option>
+          </select>
+        </label>
+        <div class="lbl" id="uSetWrap">Setores<div class="checks" id="uSetores"></div></div>
+        <label for="uSenha"><span id="uSenhaLbl">Senha provisória (mínimo 6)</span><input id="uSenha" type="text" autocomplete="off" spellcheck="false"></label>
+        <label class="toggle" for="uAtivo"><input type="checkbox" id="uAtivo" checked> Usuário ativo (pode entrar no sistema)</label>
+        <div class="acts">
+          <button class="btn" type="submit" id="uBtn">Criar usuário</button>
+          <button class="ghost" type="button" id="uCancel" hidden>Cancelar edição</button>
+        </div>
+        <p class="msg" id="uMsg" role="status"></p>
+        <p class="note">Na primeira entrada, a pessoa é obrigada a trocar a senha provisória.</p>
+      </form>
+      <div class="col">
+        <div class="tbl-wrap">
+          <table style="min-width:620px">
+            <thead><tr><th>Nome</th><th>Usuário</th><th>Função</th><th>Setores</th><th></th></tr></thead>
+            <tbody id="uLista"><tr><td colspan="5">Carregando…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const SETORES=["CTT","Oficina","Indústria","Compras","Comboio","Irrigação"];
+  const PAPEL={operador:"Operador",gestor:"Gestor",rh:"RH",admin:"Administrador"};
+  const ST={pendente:"Aguardando gestor",aguardando_rh:"Aguardando RH",finalizado:"Finalizado"};
+  const MEDIDA={verbal:"Advertência verbal",escrita:"Advertência escrita",suspensao:"Suspensão",justa_causa:"Justa causa",improcedente:"Alerta improcedente"};
+  const ERROS={
+    LOGIN_INVALIDO:"Usuário ou senha incorretos.",
+    SESSAO_EXPIRADA:"Sua sessão expirou. Entre novamente.",
+    SEM_PERMISSAO:"Você não tem permissão para isso.",
+    SETOR_INVALIDO:"Setor inválido.",
+    LINK_VAZIO:"Cole o link do alerta.",
+    LINK_DUPLICADO:"Esse link já foi registrado.",
+    SENHA_CURTA:"A senha precisa ter pelo menos 6 caracteres.",
+    SENHA_IGUAL:"A nova senha precisa ser diferente da atual.",
+    SENHA_ATUAL_ERRADA:"A senha atual está incorreta.",
+    USUARIO_INVALIDO:"Usuário deve ter de 3 a 40 caracteres: letras minúsculas, números, ponto, hífen ou sublinhado, sem espaços nem acentos.",
+    USUARIO_EXISTE:"Já existe alguém com esse usuário.",
+    NOME_VAZIO:"Informe o nome.",
+    SEM_SETOR:"Escolha pelo menos um setor.",
+    PAPEL_INVALIDO:"Função inválida.",
+    NAO_ENCONTRADO:"Ocorrência não encontrada. Atualize a página.",
+    AUTO_ALTERACAO:"Você não pode desativar nem tirar o seu próprio acesso de administrador.",
+    MEDIDA_INVALIDA:"Escolha a medida aplicada.",
+    MOTORISTA_VAZIO:"Informe o nome do motorista.",
+    DIAS_INVALIDOS:"Informe os dias de suspensão (de 1 a 30).",
+    JA_FINALIZADO:"Essa ocorrência já foi finalizada pelo RH.",
+    ETAPA_INVALIDA:"Essa ocorrência mudou de etapa. Atualize a página.",
+    MOTIVO_VAZIO:"Informe o motivo da devolução.",
+    REDE:"Sem conexão com o servidor. Verifique a internet e tente de novo."
+  };
+  const $=id=>document.getElementById(id);
+  const el=(tag,attrs,...kids)=>{const e=document.createElement(tag);if(attrs)for(const k in attrs){const v=attrs[k];if(v==null||v===false)continue;if(k==="class")e.className=v;else if(k.startsWith("on"))e.addEventListener(k.slice(2),v);else if(k==="checked"||k==="selected"||k==="disabled")e[k]=true;else e.setAttribute(k,v);}for(const c of kids){if(c==null||c===false)continue;e.append(c.nodeType?c:document.createTextNode(String(c)));}return e;};
+  const fmt=iso=>{if(!iso)return "";const d=new Date(iso);return d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"2-digit"})+" "+d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});};
+  const msgErr=e=>ERROS[e&&e.message]||("Erro: "+(e&&e.message||"desconhecido"));
+  const setMsg=(id,txt,kind)=>{const m=$(id);m.className="msg"+(kind?" "+kind:"");m.textContent=txt||"";};
+  const store={get:k=>{try{return localStorage.getItem(k);}catch(e){return null;}},set:(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v);}catch(e){}}};
+  const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const medidaTxt=a=>MEDIDA[a.medida]+(a.medida==="suspensao"&&a.dias_suspensao?" ("+a.dias_suspensao+(a.dias_suspensao>1?" dias)":" dia)"):"");
+
+  const URL_=String(window.SUPABASE_URL||"").trim().replace(/\/+$/,"");
+  const KEY=String(window.SUPABASE_KEY||"").trim();
+  let token=store.get("af_token"),perfil=null,alertas=[],usuarios=[],fStatus=null,aberto=null,editId=null,timer=null,aba="alertas";
+
+  async function rpc(fn,args){
+    const h={"Content-Type":"application/json","apikey":KEY};
+    if(KEY.startsWith("eyJ"))h.Authorization="Bearer "+KEY;
+    let r;
+    try{r=await fetch(URL_+"/rest/v1/rpc/"+fn,{method:"POST",headers:h,body:JSON.stringify(args||{})});}
+    catch(e){throw new Error("REDE");}
+    const txt=await r.text();let data=null;try{data=txt?JSON.parse(txt):null;}catch(e){}
+    if(!r.ok){
+      const code=(data&&data.message)||("HTTP "+r.status);
+      if(code==="SESSAO_EXPIRADA"&&fn!=="login")sairLocal("Sua sessão expirou. Entre novamente.");
+      throw new Error(code);
+    }
+    return data;
+  }
+
+  function show(v){["vConfig","vLogin","vSenha","vApp"].forEach(x=>$(x).hidden=x!==v);}
+  function sairLocal(aviso){token=null;perfil=null;store.set("af_token",null);clearInterval(timer);show("vLogin");setMsg("lMsg",aviso||"",aviso?"err":"");$("lPass").value="";}
+
+  // ---------- Login ----------
+  $("fLogin").addEventListener("submit",async ev=>{
+    ev.preventDefault();
+    const u=$("lUser").value.trim().toLowerCase(),p=$("lPass").value;
+    if(!u||!p){setMsg("lMsg","Preencha usuário e senha.","err");return;}
+    $("lBtn").disabled=true;setMsg("lMsg","Entrando…");
+    try{const r=await rpc("login",{p_usuario:u,p_senha:p});token=r.token;store.set("af_token",token);perfil=r.perfil;$("lPass").value="";setMsg("lMsg","");entrar();}
+    catch(e){setMsg("lMsg",msgErr(e),"err");}
+    $("lBtn").disabled=false;
+  });
+
+  // ---------- Troca de senha ----------
+  function abrirSenha(obrigatoria){
+    ["sAtual","sNova","sConf"].forEach(i=>$(i).value="");setMsg("sMsg","");
+    $("sNote").textContent=obrigatoria?"Por segurança, troque a senha provisória antes de continuar.":"Escolha uma nova senha para sua conta.";
+    $("sCancel").hidden=obrigatoria;show("vSenha");$("sAtual").focus();
+  }
+  $("sCancel").addEventListener("click",()=>show("vApp"));
+  $("fSenha").addEventListener("submit",async ev=>{
+    ev.preventDefault();
+    const a=$("sAtual").value,n=$("sNova").value,c=$("sConf").value;
+    if(n.length<6){setMsg("sMsg",ERROS.SENHA_CURTA,"err");return;}
+    if(n!==c){setMsg("sMsg","As duas senhas novas não são iguais.","err");return;}
+    $("sBtn").disabled=true;
+    try{perfil=await rpc("trocar_senha",{p_token:token,p_atual:a,p_nova:n});entrar();}
+    catch(e){setMsg("sMsg",msgErr(e),"err");}
+    $("sBtn").disabled=false;
+  });
+
+  // ---------- Entrada ----------
+  function entrar(){
+    if(perfil.trocar_senha){abrirSenha(true);return;}
+    show("vApp");
+    const todos=perfil.papel==="admin"||perfil.papel==="rh";
+    $("whoName").textContent=perfil.nome;
+    $("whoRole").textContent=PAPEL[perfil.papel]||perfil.papel;
+    $("whoSetor").textContent=todos?"Todos os setores":perfil.setores.join(" · ");
+    $("tUsuarios").hidden=perfil.papel!=="admin";
+    const podeRegistrar=perfil.papel!=="rh";
+    $("fNovo").hidden=!podeRegistrar;$("mainAlertas").classList.toggle("solo",!podeRegistrar);
+    const s=$("iSetor"),q=$("qSetor");
+    s.replaceChildren(el("option",{value:""},"Selecione…"),...perfil.setores.map(x=>el("option",{value:x},x)));
+    if(perfil.setores.length===1)s.value=perfil.setores[0];
+    q.replaceChildren(el("option",{value:""},todos?"Todos os setores":"Meus setores"),...perfil.setores.map(x=>el("option",{value:x},x)));
+    // filtro inicial conforme a função: o que está esperando por mim
+    fStatus=store.get("af_status_"+perfil.usuario)||({gestor:"pendente",rh:"aguardando_rh"}[perfil.papel]||"todos");
+    const per=store.get("af_periodo");if(per)$("qPeriodo").value=per;
+    trocarAba("alertas");
+    carregarAlertas();
+    clearInterval(timer);
+    timer=setInterval(()=>{if(document.visibilityState==="visible"&&!aberto)carregarAlertas(true);},20000);
+  }
+  $("bSair").addEventListener("click",async()=>{try{await rpc("sair",{p_token:token});}catch(e){}sairLocal();});
+  $("bSenha").addEventListener("click",()=>abrirSenha(false));
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&perfil&&!aberto)carregarAlertas(true);});
+
+  // ---------- Abas ----------
+  function trocarAba(a){
+    aba=a;
+    [["alertas","tAlertas","pAlertas"],["painel","tPainel","pPainel"],["usuarios","tUsuarios","pUsuarios"]].forEach(([k,t,p])=>{$(t).setAttribute("aria-selected",String(k===a));$(p).hidden=k!==a;});
+    $("wPeriodo").hidden=a==="usuarios";
+    if(a==="usuarios")carregarUsuarios();
+    if(a==="painel")renderPainel();
+  }
+  $("tAlertas").addEventListener("click",()=>trocarAba("alertas"));
+  $("tPainel").addEventListener("click",()=>trocarAba("painel"));
+  $("tUsuarios").addEventListener("click",()=>trocarAba("usuarios"));
+  $("qPeriodo").addEventListener("change",()=>{store.set("af_periodo",$("qPeriodo").value);renderAlertas();if(aba==="painel")renderPainel();});
+
+  function noPeriodo(){
+    const v=$("qPeriodo").value,now=new Date();let ini=null,fim=null;
+    const d0=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+    if(v==="hoje")ini=d0;
+    else if(v==="7")ini=new Date(d0.getTime()-6*864e5);
+    else if(v==="30")ini=new Date(d0.getTime()-29*864e5);
+    else if(v==="mes")ini=new Date(now.getFullYear(),now.getMonth(),1);
+    else if(v==="mesant"){ini=new Date(now.getFullYear(),now.getMonth()-1,1);fim=new Date(now.getFullYear(),now.getMonth(),1);}
+    return alertas.filter(a=>{const t=new Date(a.criado_em);return(!ini||t>=ini)&&(!fim||t<fim);});
+  }
+  const periodoTxt=()=>$("qPeriodo").selectedOptions[0].textContent;
+
+  // ---------- Ocorrências ----------
+  async function carregarAlertas(silencioso){
+    try{
+      alertas=await rpc("listar_alertas",{p_token:token,p_limite:5000});
+      $("sync").textContent="Atualizado às "+new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})+" · atualiza sozinho a cada 20 s";
+      renderAlertas();if(aba==="painel")renderPainel();
+    }catch(e){if(!silencioso&&perfil)$("lista").replaceChildren(el("div",{class:"empty"},msgErr(e)));}
+  }
+
+  function formGestor(a){
+    const id="g"+a.id,m=el("p",{class:"msg"});
+    const mot=el("input",{id:id+"m",placeholder:"Nome do motorista (e matrícula, se tiver)",autocomplete:"off"});
+    const med=el("select",{id:id+"d"},el("option",{value:""},"Selecione…"),...Object.keys(MEDIDA).map(k=>el("option",{value:k},MEDIDA[k])));
+    const dias=el("input",{id:id+"s",type:"number",min:"1",max:"30",inputmode:"numeric",placeholder:"Ex.: 3"});
+    const wDias=el("label",{for:id+"s"},"Dias de suspensão",dias);
+    const com=el("textarea",{id:id+"c",rows:"2",placeholder:"O que foi conversado, contexto, testemunhas…"});
+    const st=aberto.dados||{};mot.value=st.mot!=null?st.mot:(a.motorista||"");med.value=st.med!=null?st.med:(a.medida||"");dias.value=st.dias!=null?st.dias:(a.dias_suspensao||"");com.value=st.com!=null?st.com:(a.comentario||"");
+    const sync=()=>{wDias.hidden=med.value!=="suspensao";aberto.dados={mot:mot.value,med:med.value,dias:dias.value,com:com.value};};
+    [mot,med,dias,com].forEach(x=>x.addEventListener("input",sync));med.addEventListener("change",sync);sync();
+    const enviar=async()=>{
+      if(!med.value){m.className="msg err";m.textContent=ERROS.MEDIDA_INVALIDA;med.focus();return;}
+      if(med.value!=="improcedente"&&!mot.value.trim()){m.className="msg err";m.textContent=ERROS.MOTORISTA_VAZIO;mot.focus();return;}
+      btn.disabled=true;
+      try{await rpc("tratar_alerta",{p_token:token,p_id:a.id,p_motorista:mot.value,p_medida:med.value,p_dias:med.value==="suspensao"?parseInt(dias.value,10)||null:null,p_comentario:com.value});aberto=null;await carregarAlertas();}
+      catch(e){m.className="msg err";m.textContent=msgErr(e);btn.disabled=false;}
+    };
+    const btn=el("button",{type:"button",class:"btn sm",onclick:enviar},"Enviar para o RH");
+    return el("div",{class:"tform"},
+      el("label",{for:id+"m"},"Motorista",mot),
+      el("div",{class:"row2"},el("label",{for:id+"d"},"Medida aplicada",med),wDias),
+      el("label",{for:id+"c"},"Comentário do gestor",com),
+      el("div",{class:"acts"},btn,el("button",{type:"button",class:"ghost",onclick:()=>{aberto=null;renderAlertas();}},"Cancelar")),m);
+  }
+  function formRh(a,modo){
+    const id="r"+a.id,m=el("p",{class:"msg"});
+    const txt=el("textarea",{id:id+"t",rows:"2",placeholder:modo==="fin"?"Ex.: advertência assinada e arquivada no prontuário":"O que o gestor precisa corrigir ou completar"});
+    txt.value=(aberto.dados&&aberto.dados.t)||"";txt.addEventListener("input",()=>aberto.dados={t:txt.value});
+    const ir=async()=>{
+      if(modo==="dev"&&!txt.value.trim()){m.className="msg err";m.textContent=ERROS.MOTIVO_VAZIO;txt.focus();return;}
+      btn.disabled=true;
+      try{await rpc(modo==="fin"?"finalizar_alerta":"devolver_alerta",modo==="fin"?{p_token:token,p_id:a.id,p_obs:txt.value}:{p_token:token,p_id:a.id,p_motivo:txt.value});aberto=null;await carregarAlertas();}
+      catch(e){m.className="msg err";m.textContent=msgErr(e);btn.disabled=false;}
+    };
+    const btn=el("button",{type:"button",class:modo==="fin"?"btn sm":"ghost badb",onclick:ir},modo==="fin"?"Confirmar finalização":"Devolver ao gestor");
+    return el("div",{class:"tform"},
+      el("label",{for:id+"t"},modo==="fin"?"Observação do RH (opcional)":"Motivo da devolução",txt),
+      el("div",{class:"acts"},btn,el("button",{type:"button",class:"ghost",onclick:()=>{aberto=null;renderAlertas();}},"Cancelar")),m);
+  }
+  function formEditar(a){
+    const id="e"+a.id,m=el("p",{class:"msg"}),d=aberto.dados||(aberto.dados={link:a.link,setor:a.setor,tipo:a.tipo||"",frota:a.frota||"",obs:a.obs||"",mot:a.motorista||"",med:a.medida||"",dias:a.dias_suspensao||"",com:a.comentario||""});
+    const inp=(k,attrs)=>{const x=el(attrs.tag||"input",Object.assign({id:id+k},attrs.a||{}));x.value=d[k];x.addEventListener("input",()=>{d[k]=x.value;sync();});x.addEventListener("change",()=>{d[k]=x.value;sync();});return x;};
+    const link=inp("link",{a:{autocomplete:"off"}});
+    const setor=el("select",{id:id+"setor"},...SETORES.map(x=>el("option",{value:x},x)));setor.value=d.setor;setor.addEventListener("change",()=>d.setor=setor.value);
+    const tipos=["Sonolência","Bocejo","Distração","Uso de celular","Cigarro","Sem cinto","Câmera obstruída","Outro"];if(d.tipo&&!tipos.includes(d.tipo))tipos.push(d.tipo);
+    const tipo=el("select",{id:id+"tipo"},el("option",{value:""},"—"),...tipos.map(x=>el("option",{value:x},x)));tipo.value=d.tipo;tipo.addEventListener("change",()=>d.tipo=tipo.value);
+    const frota=inp("frota",{a:{autocomplete:"off"}}),obs=inp("obs",{tag:"textarea",a:{rows:"2"}});
+    const temTrat=a.status!=="pendente"||!!a.medida;
+    const mot=inp("mot",{a:{autocomplete:"off"}});
+    const med=el("select",{id:id+"med"},el("option",{value:""},a.status==="pendente"?"Sem tratativa ainda":"Selecione…"),...Object.keys(MEDIDA).map(k=>el("option",{value:k},MEDIDA[k])));med.value=d.med;
+    med.addEventListener("change",()=>{d.med=med.value;sync();});
+    const dias=inp("dias",{a:{type:"number",min:"1",max:"30",inputmode:"numeric"}}),wDias=el("label",{for:id+"dias"},"Dias de suspensão",dias);
+    const com=inp("com",{tag:"textarea",a:{rows:"2"}});
+    function sync(){wDias.hidden=d.med!=="suspensao";}
+    const salvar=async()=>{
+      btn.disabled=true;
+      try{
+        await rpc("editar_alerta",{p_token:token,p_id:a.id,p_link:d.link,p_setor:d.setor,p_tipo:d.tipo,p_frota:d.frota,p_obs:d.obs,
+          p_motorista:d.mot,p_medida:d.med||null,p_dias:d.med==="suspensao"?parseInt(d.dias,10)||null:null,p_comentario:d.com});
+        aberto=null;await carregarAlertas();
+      }catch(e){m.className="msg err";m.textContent=msgErr(e);btn.disabled=false;}
+    };
+    const btn=el("button",{type:"button",class:"btn sm",onclick:salvar},"Salvar alterações");
+    sync();
+    return el("div",{class:"tform"},
+      el("span",{class:"lbl"},"Editar registro"),
+      el("label",{for:id+"link"},"Link do alerta",link),
+      el("div",{class:"row2"},el("label",{for:id+"setor"},"Setor",setor),el("label",{for:id+"tipo"},"Tipo",tipo)),
+      el("div",{class:"row2"},el("label",{for:id+"frota"},"Frota / placa",frota),el("span")),
+      el("label",{for:id+"obs"},"Observação",obs),
+      temTrat?el("span",{class:"lbl",style:"margin-top:4px"},"Tratativa do gestor"):null,
+      temTrat?el("label",{for:id+"mot"},"Motorista",mot):null,
+      temTrat?el("div",{class:"row2"},el("label",{for:id+"med"},"Medida aplicada",med),wDias):null,
+      temTrat?el("label",{for:id+"com"},"Comentário do gestor",com):null,
+      el("div",{class:"acts"},btn,el("button",{type:"button",class:"ghost",onclick:()=>{aberto=null;renderAlertas();}},"Cancelar")),m);
+  }
+  const abrir=(id,modo)=>{aberto={id,modo,dados:null};renderAlertas();const f=document.querySelector('[data-form="'+id+'"] input, [data-form="'+id+'"] textarea');f&&f.focus();};
+
+  function renderAlertas(){
+    if(!perfil)return;
+    const base=noPeriodo();
+    const busca=$("qBusca").value.trim().toLowerCase(),setor=$("qSetor").value;
+    const cnt={todos:base.length,pendente:0,aguardando_rh:0,finalizado:0};
+    base.forEach(a=>cnt[a.status]++);
+    $("cTodos").textContent=cnt.todos;$("cPend").textContent=cnt.pendente;$("cRh").textContent=cnt.aguardando_rh;$("cFin").textContent=cnt.finalizado;
+    document.querySelectorAll(".stat").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.f===fStatus)));
+    const vis=base.filter(a=>(fStatus==="todos"||a.status===fStatus)&&(!setor||a.setor===setor)&&(!busca||[a.link,a.frota,a.obs,a.tipo,a.motorista,a.comentario].join(" ").toLowerCase().includes(busca)));
+    const P=perfil.papel,ehGestor=P==="gestor"||P==="admin",ehRh=P==="rh"||P==="admin";
+    if(!vis.length){
+      const txt=!base.length?"Nenhuma ocorrência no período ("+periodoTxt().toLowerCase()+").":(fStatus==="pendente"&&P==="gestor"?"Nada aguardando você. Tudo em dia.":fStatus==="aguardando_rh"&&P==="rh"?"Nada aguardando o RH. Tudo em dia.":"Nenhuma ocorrência com esses filtros.");
+      $("lista").replaceChildren(el("div",{class:"empty"},txt));return;
+    }
+    $("lista").replaceChildren(...vis.map(a=>{
+      const acts=el("div",{class:"acts"});let form=null;
+      const isOpen=aberto&&aberto.id===a.id;
+      if(isOpen&&aberto.modo==="gestor")form=formGestor(a);
+      else if(isOpen&&(aberto.modo==="fin"||aberto.modo==="dev"))form=formRh(a,aberto.modo);
+      else if(isOpen&&aberto.modo==="edit")form=formEditar(a);
+      else if(isOpen&&aberto.modo==="del")acts.append(el("span",{class:"note"},"Excluir esta ocorrência?"),
+          el("button",{type:"button",class:"ghost badb",onclick:async()=>{try{await rpc("excluir_alerta",{p_token:token,p_id:a.id});}catch(e){}aberto=null;carregarAlertas();}},"Sim, excluir"),
+          el("button",{type:"button",class:"ghost",onclick:()=>{aberto=null;renderAlertas();}},"Não"));
+      else{
+        if(ehGestor&&a.status!=="finalizado")acts.append(el("button",{type:"button",class:a.status==="pendente"?"btn sm":"ghost",onclick:()=>abrir(a.id,"gestor")},a.status==="pendente"?"Registrar tratativa":"Alterar tratativa"));
+        if(ehRh&&a.status==="aguardando_rh"){acts.append(el("button",{type:"button",class:"btn sm",onclick:()=>abrir(a.id,"fin")},"Finalizar"),el("button",{type:"button",class:"ghost",onclick:()=>abrir(a.id,"dev")},"Devolver ao gestor"));}
+        if(ehRh&&a.status==="finalizado")acts.append(el("button",{type:"button",class:"ghost",onclick:async()=>{try{await rpc("reabrir_alerta",{p_token:token,p_id:a.id});await carregarAlertas();}catch(e){}}},"Reabrir"));
+        if(P==="admin")acts.append(el("button",{type:"button",class:"ghost",onclick:()=>abrir(a.id,"edit")},"Editar"));
+        if(P==="admin"||(a.meu&&a.status==="pendente"&&!a.medida))acts.append(el("button",{type:"button",class:"ghost",onclick:()=>{aberto={id:a.id,modo:"del"};renderAlertas();}},"Excluir"));
+      }
+      const href=/^https?:\/\//i.test(a.link)?a.link:null;
+      const devolvido=a.status==="pendente"&&a.rh_obs;
+      return el("article",{class:"item "+a.status},
+        el("div",{class:"top"},
+          el("div",{class:"tags"},el("span",{class:"chip setor"},"Setor: "+a.setor),a.tipo?el("span",{class:"chip"},a.tipo):null,a.frota?el("span",{class:"chip"},"Frota "+a.frota):null),
+          el("span",{class:"pill "+a.status},devolvido?"Devolvido pelo RH":ST[a.status])),
+        href?el("a",{class:"link",href,target:"_blank",rel:"noopener noreferrer"},a.link):el("span",{class:"link"},a.link),
+        a.obs?el("p",{class:"obs"},a.obs):null,
+        el("div",{class:"meta"},"Registrado por "+(a.criado_por_nome||"usuário removido")+" em "+fmt(a.criado_em)),
+        devolvido?el("div",{class:"box dev"},el("span",{class:"k"},"Devolvido pelo RH · "+fmt(a.finalizado_em)),el("span",null,a.rh_obs)):null,
+        a.medida?el("div",{class:"box"},el("span",{class:"k"},"Tratativa do gestor · "+(a.tratado_por_nome||"—")+" · "+fmt(a.tratado_em)),
+          el("div",{class:"kv"},el("span",null,"Medida: ",el("span",{class:"medida "+a.medida},medidaTxt(a))),a.motorista?el("span",null,"Motorista: ",el("b",null,a.motorista)):null),
+          a.comentario?el("span",null,a.comentario):null):null,
+        a.status==="finalizado"?el("div",{class:"box fin"},el("span",{class:"k"},"Finalizado pelo RH · "+(a.finalizado_por_nome||"—")+" · "+fmt(a.finalizado_em)),a.rh_obs?el("span",null,a.rh_obs):null):null,
+        form?el("div",{"data-form":String(a.id)},form):null,
+        acts.childNodes.length?acts:null);
+    }));
+  }
+  document.querySelectorAll(".stat").forEach(b=>b.addEventListener("click",()=>{fStatus=b.dataset.f;store.set("af_status_"+perfil.usuario,fStatus);renderAlertas();}));
+  $("qBusca").addEventListener("input",renderAlertas);$("qSetor").addEventListener("change",renderAlertas);
+
+  $("fNovo").addEventListener("submit",async ev=>{
+    ev.preventDefault();setMsg("mNovo","");
+    const link=$("iLink").value.trim(),setor=$("iSetor").value;
+    if(!link){setMsg("mNovo",ERROS.LINK_VAZIO,"err");$("iLink").focus();return;}
+    if(!setor){setMsg("mNovo","Escolha o setor da ocorrência.","err");$("iSetor").focus();return;}
+    $("bSalvar").disabled=true;
+    try{
+      await rpc("criar_alerta",{p_token:token,p_link:link,p_setor:setor,p_tipo:$("iTipo").value,p_frota:$("iFrota").value,p_obs:$("iObs").value});
+      $("iLink").value="";$("iFrota").value="";$("iObs").value="";setMsg("mNovo","Ocorrência registrada e enviada ao gestor de "+setor+".","okm");$("iLink").focus();
+      carregarAlertas();
+    }catch(e){setMsg("mNovo",msgErr(e),"err");}
+    $("bSalvar").disabled=false;
+  });
+
+  // ---------- Painel ----------
+  function renderPainel(){
+    if(!perfil)return;
+    const base=noPeriodo(),setores=perfil.setores;
+    $("dPer").textContent="Período: "+periodoTxt();
+    const por={};setores.forEach(s=>por[s]={total:0,pendente:0,aguardando_rh:0,finalizado:0});
+    base.forEach(a=>{const p=por[a.setor];if(p){p.total++;p[a.status]++;}});
+    // gráfico 1 — por setor (barras agrupadas)
+    const series=[["Total de ocorrências","b-total",p=>p.total,"--bar-total"],["Tratados pelo gestor","b-trat",p=>p.aguardando_rh+p.finalizado,"--accent"],["Finalizados pelo RH","b-fin",p=>p.finalizado,"--ok"]];
+    $("lSetor").replaceChildren(...series.map(([l,,,v])=>el("span",null,el("i",{style:"background:var("+v+")"}),l)));
+    desenharBarras($("chSetor"),setores,series.map(([l,c,f])=>({label:l,cls:c,vals:setores.map(s=>f(por[s]))})));
+    $("tSetor").replaceChildren(...setores.map(s=>{const p=por[s],tr=p.aguardando_rh+p.finalizado;return el("tr",null,el("td",null,s),el("td",{class:"num"},p.total),el("td",{class:"num"},tr),el("td",{class:"num"},p.total?Math.round(tr/p.total*100)+"%":"—"),el("td",{class:"num"},p.pendente),el("td",{class:"num"},p.aguardando_rh),el("td",{class:"num"},p.finalizado));}),
+      (()=>{const t=Object.values(por).reduce((a,p)=>({total:a.total+p.total,pendente:a.pendente+p.pendente,aguardando_rh:a.aguardando_rh+p.aguardando_rh,finalizado:a.finalizado+p.finalizado}),{total:0,pendente:0,aguardando_rh:0,finalizado:0}),tr=t.aguardando_rh+t.finalizado;
+        return el("tr",{style:"font-weight:700"},el("td",null,"Total"),el("td",{class:"num"},t.total),el("td",{class:"num"},tr),el("td",{class:"num"},t.total?Math.round(tr/t.total*100)+"%":"—"),el("td",{class:"num"},t.pendente),el("td",{class:"num"},t.aguardando_rh),el("td",{class:"num"},t.finalizado));})());
+    // gráfico 2 — consolidado (rosca)
+    const c={pendente:0,aguardando_rh:0,finalizado:0};base.forEach(a=>c[a.status]++);
+    const tot=base.length,vals=[c.pendente,c.aguardando_rh,c.finalizado],nomes=[ST.pendente,ST.aguardando_rh,ST.finalizado],cls=["d-pend","d-rh","d-fin"],vars=["--warn","--info","--ok"];
+    desenharRosca($("chCons"),vals,cls,nomes);
+    $("dTotal").textContent=tot;
+    $("dLeg").replaceChildren(...nomes.map((l,i)=>el("span",null,el("i",{style:"background:var("+vars[i]+")"}),l+": "+vals[i]+(tot?" ("+Math.round(vals[i]/tot*100)+"%)":""))));
+    const tratados=c.aguardando_rh+c.finalizado;
+    $("kTrat").textContent=tot?Math.round(tratados/tot*100)+"%":"—";
+    $("kFin").textContent=tot?Math.round(c.finalizado/tot*100)+"%":"—";
+    const tempos=base.filter(a=>a.medida&&a.tratado_em).map(a=>(new Date(a.tratado_em)-new Date(a.criado_em))/36e5);
+    const med=tempos.length?tempos.reduce((x,y)=>x+y,0)/tempos.length:null;
+    $("kTempo").textContent=med==null?"—":med<1?Math.round(med*60)+" min":med<48?med.toFixed(1).replace(".",",")+" h":(med/24).toFixed(1).replace(".",",")+" dias";
+    const mc={};Object.keys(MEDIDA).forEach(k=>mc[k]=0);base.forEach(a=>{if(a.medida)mc[a.medida]++;});
+    const mx=Math.max(1,...Object.values(mc));
+    $("dMed").replaceChildren(...Object.keys(MEDIDA).map(k=>el("div",{class:"hbar"},el("span",null,MEDIDA[k]),el("div",{class:"track"},el("div",{class:"fill "+k,style:"width:"+(mc[k]/mx*100)+"%"})),el("span",{class:"v"},mc[k]))));
+  }
+  const NS="http://www.w3.org/2000/svg";
+  const sv=(tag,attrs,...kids)=>{const e=document.createElementNS(NS,tag);for(const k in attrs||{})e.setAttribute(k,attrs[k]);kids.forEach(k=>k!=null&&e.append(k.nodeType?k:document.createTextNode(String(k))));return e;};
+  const teto=v=>{if(v<=4)return 4;const p=Math.pow(10,Math.floor(Math.log10(v))),n=v/p;return (n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*p;};
+  function desenharBarras(box,cats,series){
+    const W=Math.max(300,box.clientWidth||700),H=box.clientHeight||300,L=34,R=6,T=18,B=30;
+    const max=teto(Math.max(1,...series.flatMap(s=>s.vals))),y=v=>T+(H-T-B)*(1-v/max);
+    const svg=sv("svg",{viewBox:"0 0 "+W+" "+H,preserveAspectRatio:"none"});
+    for(let i=0;i<=4;i++){const v=max/4*i,yy=y(v);svg.append(sv("line",{class:i?"gridl":"base",x1:L,x2:W-R,y1:yy,y2:yy}),sv("text",{class:"ax","text-anchor":"end",x:L-6,y:yy+4},Number.isInteger(v)?v:v.toFixed(1)));}
+    const gw=(W-L-R)/cats.length,bw=Math.min(28,(gw*0.78)/series.length),gap=Math.min(4,bw*0.15);
+    cats.forEach((cat,ci)=>{
+      const gx=L+gw*ci+(gw-(bw*series.length+gap*(series.length-1)))/2;
+      series.forEach((s,si)=>{const v=s.vals[ci],x=gx+si*(bw+gap),yy=y(v),h=Math.max(0,H-B-yy);
+        svg.append(sv("rect",{class:s.cls,x:x,y:yy,width:bw,height:h,rx:2},sv("title",null,cat+" · "+s.label+": "+v)));
+        if(v>0&&bw>=14)svg.append(sv("text",{class:"vlab","text-anchor":"middle",x:x+bw/2,y:yy-4},v));});
+      svg.append(sv("text",{class:"ax x","text-anchor":"middle",x:L+gw*ci+gw/2,y:H-B+18},cat));
+    });
+    box.replaceChildren(svg);
+  }
+  function desenharRosca(box,vals,cls,nomes){
+    const r=80,C=2*Math.PI*r,tot=vals.reduce((a,b)=>a+b,0);
+    const svg=sv("svg",{viewBox:"0 0 200 200"});
+    const g=sv("g",{transform:"rotate(-90 100 100)"});
+    if(!tot)g.append(sv("circle",{class:"d-vazio",cx:100,cy:100,r:r,fill:"none","stroke-width":26}));
+    let off=0;vals.forEach((v,i)=>{if(!v)return;const len=C*v/tot;
+      g.append(sv("circle",{class:cls[i],cx:100,cy:100,r:r,fill:"none","stroke-width":26,"stroke-dasharray":(len-(vals.filter(Boolean).length>1?2:0))+" "+C,"stroke-dashoffset":-off},sv("title",null,nomes[i]+": "+v)));off+=len;});
+    svg.append(g);box.replaceChildren(svg);
+  }
+  let rz;window.addEventListener("resize",()=>{clearTimeout(rz);rz=setTimeout(()=>{if(aba==="painel")renderPainel();},150);});
+
+  // ---------- Usuários (admin) ----------
+  $("uSetores").replaceChildren(...SETORES.map((s,i)=>el("label",null,el("input",{type:"checkbox",id:"us"+i,value:s}),s)));
+  const syncPapel=()=>{$("uSetWrap").hidden=$("uPapel").value==="admin"||$("uPapel").value==="rh";};
+  $("uPapel").addEventListener("change",syncPapel);
+  function limparForm(){
+    editId=null;$("fUser").reset();$("uAtivo").checked=true;syncPapel();
+    $("uTitle").textContent="Novo usuário";$("uBtn").textContent="Criar usuário";$("uCancel").hidden=true;
+    $("uSenhaLbl").textContent="Senha provisória (mínimo 6)";
+  }
+  $("uCancel").addEventListener("click",()=>{limparForm();setMsg("uMsg","");});
+  function editar(u){
+    editId=u.id;$("uLogin").value=u.usuario;$("uNome").value=u.nome;$("uPapel").value=u.papel;$("uSenha").value="";$("uAtivo").checked=u.ativo;
+    $("uSetores").querySelectorAll("input").forEach(x=>x.checked=u.setores.includes(x.value));syncPapel();
+    $("uTitle").textContent="Editar "+u.nome;$("uBtn").textContent="Salvar alterações";$("uCancel").hidden=false;
+    $("uSenhaLbl").textContent="Nova senha (deixe em branco para manter)";setMsg("uMsg","");
+    $("uNome").focus();window.scrollTo({top:0,behavior:"smooth"});
+  }
+  async function carregarUsuarios(){
+    try{usuarios=await rpc("listar_usuarios",{p_token:token});}catch(e){$("uLista").replaceChildren(el("tr",null,el("td",{colspan:"5"},msgErr(e))));return;}
+    $("uLista").replaceChildren(...usuarios.map(u=>el("tr",{class:u.ativo?"":"inativo"},
+      el("td",null,el("span",{class:"status-dot",title:u.ativo?"Ativo":"Inativo"}),u.nome,u.eu?" (você)":"",u.ativo?"":" — inativo"),
+      el("td",{class:"mono"},u.usuario),
+      el("td",null,PAPEL[u.papel]||u.papel),
+      el("td",null,(u.papel==="admin"||u.papel==="rh")?"Todos":u.setores.join(", ")),
+      el("td",null,el("button",{type:"button",class:"ghost",onclick:()=>editar(u)},"Editar")))));
+  }
+  $("fUser").addEventListener("submit",async ev=>{
+    ev.preventDefault();
+    const papel=$("uPapel").value,setores=[...$("uSetores").querySelectorAll("input:checked")].map(x=>x.value);
+    const login=$("uLogin").value.trim().toLowerCase(),senha=$("uSenha").value;
+    if(!editId&&senha.length<6){setMsg("uMsg",ERROS.SENHA_CURTA,"err");return;}
+    if(papel!=="admin"&&papel!=="rh"&&!setores.length){setMsg("uMsg",ERROS.SEM_SETOR,"err");return;}
+    $("uBtn").disabled=true;
+    try{
+      await rpc("salvar_usuario",{p_token:token,p_id:editId,p_usuario:login,p_nome:$("uNome").value,p_papel:papel,p_setores:setores,p_senha:senha||null,p_ativo:$("uAtivo").checked});
+      const novo=!editId;limparForm();
+      setMsg("uMsg",novo?"Usuário criado. Passe o login "+login+" e a senha provisória para a pessoa.":"Alterações salvas.","okm");
+      carregarUsuarios();
+    }catch(e){setMsg("uMsg",msgErr(e),"err");}
+    $("uBtn").disabled=false;
+  });
+
+  // ---------- Início ----------
+  (async()=>{
+    if(!URL_||URL_.includes("COLE_AQUI")||!KEY||KEY.includes("COLE_AQUI")){show("vConfig");return;}
+    if(!token){show("vLogin");$("lUser").focus();return;}
+    try{perfil=await rpc("eu",{p_token:token});entrar();}
+    catch(e){if(e.message!=="SESSAO_EXPIRADA")sairLocal(msgErr(e));}
+  })();
+})();
+</script>
+</body>
+</html>
