@@ -222,6 +222,7 @@ tr.inativo .status-dot{background:var(--muted)}
         <option value="mes">Este mês</option>
         <option value="mesant">Mês passado</option>
       </select>
+      <button class="ghost" type="button" id="bExport" title="Baixa as ocorrências do período escolhido">Exportar para Excel</button>
     </label>
   </div>
 
@@ -447,13 +448,14 @@ tr.inativo .status-dot{background:var(--muted)}
     fStatus=store.get("af_status_"+perfil.usuario)||({gestor:"pendente",rh:"aguardando_rh"}[perfil.papel]||"todos");
     const per=store.get("af_periodo");if(per)$("qPeriodo").value=per;
     trocarAba("alertas");
-    carregarAlertas();
+    versao=null;verificar();
     clearInterval(timer);
-    timer=setInterval(()=>{if(document.visibilityState==="visible"&&!aberto)carregarAlertas(true);},20000);
+    versao=null;
+    timer=setInterval(()=>{if(document.visibilityState==="visible"&&!aberto)verificar();},20000);
   }
   $("bSair").addEventListener("click",async()=>{try{await rpc("sair",{p_token:token});}catch(e){}sairLocal();});
   $("bSenha").addEventListener("click",()=>abrirSenha(false));
-  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&perfil&&!aberto)carregarAlertas(true);});
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&perfil&&!aberto)verificar();});
 
   // ---------- Abas ----------
   function trocarAba(a){
@@ -481,10 +483,32 @@ tr.inativo .status-dot{background:var(--muted)}
   const periodoTxt=()=>$("qPeriodo").selectedOptions[0].textContent;
 
   // ---------- Ocorrências ----------
+  let versao=null;
+  const marcarSync=()=>{$("sync").textContent="Verificado às "+new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})+" · confere novidades a cada 20 s";};
+  // Consulta só um número; baixa a lista completa apenas quando algo mudou.
+  async function verificar(){
+    try{
+      const v=await rpc("versao_alertas",{p_token:token});
+      if(v!==versao){await carregarAlertas(true);versao=v;}else marcarSync();
+    }catch(e){if(e.message!=="SESSAO_EXPIRADA"&&e.message!=="REDE")carregarAlertas(true);}
+  }
+  // ---------- Exportar ----------
+  function exportar(){
+    const linhas=noPeriodo();
+    const cab=["Nº","Data do registro","Setor","Tipo","Frota/placa","Link do alerta","Observação","Registrado por","Etapa","Motorista","Medida","Dias de suspensão","Comentário do gestor","Gestor","Data da tratativa","Observação do RH / devolução","RH","Data da finalização"];
+    const dt=iso=>iso?new Date(iso).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}).replace(",",""):"";
+    const q=v=>{v=v==null?"":String(v);return /[";\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
+    const corpo=linhas.map(a=>[a.id,dt(a.criado_em),a.setor,a.tipo,a.frota,a.link,a.obs,a.criado_por_nome,(a.status==="pendente"&&a.rh_obs)?"Devolvido pelo RH":ST[a.status],a.motorista,a.medida?MEDIDA[a.medida]:"",a.dias_suspensao,a.comentario,a.tratado_por_nome,dt(a.tratado_em),a.rh_obs,a.status==="finalizado"?a.finalizado_por_nome:"",a.status==="finalizado"?dt(a.finalizado_em):""].map(q).join(";"));
+    const csv="\ufeff"+[cab.map(q).join(";"),...corpo].join("\r\n");
+    const nome="ocorrencias-fadiga-"+$("qPeriodo").value+"-"+new Date().toISOString().slice(0,10)+".csv";
+    const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+    const link=el("a",{href:url,download:nome});document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
+  }
+  $("bExport").addEventListener("click",ev=>{ev.preventDefault();exportar();});
   async function carregarAlertas(silencioso){
     try{
       alertas=await rpc("listar_alertas",{p_token:token,p_limite:5000});
-      $("sync").textContent="Atualizado às "+new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})+" · atualiza sozinho a cada 20 s";
+      marcarSync();
       renderAlertas();if(aba==="painel")renderPainel();
     }catch(e){if(!silencioso&&perfil)$("lista").replaceChildren(el("div",{class:"empty"},msgErr(e)));}
   }
@@ -537,7 +561,7 @@ tr.inativo .status-dot{background:var(--muted)}
     const tipo=el("select",{id:id+"tipo"},el("option",{value:""},"—"),...tipos.map(x=>el("option",{value:x},x)));tipo.value=d.tipo;tipo.addEventListener("change",()=>d.tipo=tipo.value);
     const frota=inp("frota",{a:{autocomplete:"off"}}),obs=inp("obs",{tag:"textarea",a:{rows:"2"}});
     const temTrat=a.status!=="pendente"||!!a.medida;
-    const mot=inp("mot",{a:{autocomplete:"off"}});
+    const mot=inp("mot",{a:{autocomplete:"off",placeholder:"Nome do motorista (e matrícula, se tiver)"}});
     const med=el("select",{id:id+"med"},el("option",{value:""},a.status==="pendente"?"Sem tratativa ainda":"Selecione…"),...Object.keys(MEDIDA).map(k=>el("option",{value:k},MEDIDA[k])));med.value=d.med;
     med.addEventListener("change",()=>{d.med=med.value;sync();});
     const dias=inp("dias",{a:{type:"number",min:"1",max:"30",inputmode:"numeric"}}),wDias=el("label",{for:id+"dias"},"Dias de suspensão",dias);
@@ -547,7 +571,7 @@ tr.inativo .status-dot{background:var(--muted)}
       btn.disabled=true;
       try{
         await rpc("editar_alerta",{p_token:token,p_id:a.id,p_link:d.link,p_setor:d.setor,p_tipo:d.tipo,p_frota:d.frota,p_obs:d.obs,
-          p_motorista:d.mot,p_medida:d.med||null,p_dias:d.med==="suspensao"?parseInt(d.dias,10)||null:null,p_comentario:d.com});
+          p_motorista:d.mot,p_medida:null,p_dias:null,p_comentario:null});
         aberto=null;await carregarAlertas();
       }catch(e){m.className="msg err";m.textContent=msgErr(e);btn.disabled=false;}
     };
@@ -559,10 +583,8 @@ tr.inativo .status-dot{background:var(--muted)}
       el("div",{class:"row2"},el("label",{for:id+"setor"},"Setor",setor),el("label",{for:id+"tipo"},"Tipo",tipo)),
       el("div",{class:"row2"},el("label",{for:id+"frota"},"Frota / placa",frota),el("span")),
       el("label",{for:id+"obs"},"Observação",obs),
-      temTrat?el("span",{class:"lbl",style:"margin-top:4px"},"Tratativa do gestor"):null,
-      temTrat?el("label",{for:id+"mot"},"Motorista",mot):null,
-      temTrat?el("div",{class:"row2"},el("label",{for:id+"med"},"Medida aplicada",med),wDias):null,
-      temTrat?el("label",{for:id+"com"},"Comentário do gestor",com):null,
+      el("label",{for:id+"mot"},temTrat?"Motorista":"Motorista (o gestor recebe já preenchido)",mot),
+      temTrat?el("p",{class:"note"},"A medida e o comentário são definidos pelo gestor do setor."):null,
       el("div",{class:"acts"},btn,el("button",{type:"button",class:"ghost",onclick:()=>{aberto=null;renderAlertas();}},"Cancelar")),m);
   }
   const abrir=(id,modo)=>{aberto={id,modo,dados:null};renderAlertas();const f=document.querySelector('[data-form="'+id+'"] input, [data-form="'+id+'"] textarea');f&&f.focus();};
@@ -576,7 +598,7 @@ tr.inativo .status-dot{background:var(--muted)}
     $("cTodos").textContent=cnt.todos;$("cPend").textContent=cnt.pendente;$("cRh").textContent=cnt.aguardando_rh;$("cFin").textContent=cnt.finalizado;
     document.querySelectorAll(".stat").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.f===fStatus)));
     const vis=base.filter(a=>(fStatus==="todos"||a.status===fStatus)&&(!setor||a.setor===setor)&&(!busca||[a.link,a.frota,a.obs,a.tipo,a.motorista,a.comentario].join(" ").toLowerCase().includes(busca)));
-    const P=perfil.papel,ehGestor=P==="gestor"||P==="admin",ehRh=P==="rh"||P==="admin";
+    const P=perfil.papel,ehGestor=P==="gestor",ehRh=P==="rh"||P==="admin";
     if(!vis.length){
       const txt=!base.length?"Nenhuma ocorrência no período ("+periodoTxt().toLowerCase()+").":(fStatus==="pendente"&&P==="gestor"?"Nada aguardando você. Tudo em dia.":fStatus==="aguardando_rh"&&P==="rh"?"Nada aguardando o RH. Tudo em dia.":"Nenhuma ocorrência com esses filtros.");
       $("lista").replaceChildren(el("div",{class:"empty"},txt));return;
@@ -605,6 +627,7 @@ tr.inativo .status-dot{background:var(--muted)}
           el("span",{class:"pill "+a.status},devolvido?"Devolvido pelo RH":ST[a.status])),
         href?el("a",{class:"link",href,target:"_blank",rel:"noopener noreferrer"},a.link):el("span",{class:"link"},a.link),
         a.obs?el("p",{class:"obs"},a.obs):null,
+        !a.medida&&a.motorista?el("div",{class:"kv",style:"font-size:.9rem"},el("span",null,"Motorista: ",el("b",null,a.motorista))):null,
         el("div",{class:"meta"},"Registrado por "+(a.criado_por_nome||"usuário removido")+" em "+fmt(a.criado_em)),
         devolvido?el("div",{class:"box dev"},el("span",{class:"k"},"Devolvido pelo RH · "+fmt(a.finalizado_em)),el("span",null,a.rh_obs)):null,
         a.medida?el("div",{class:"box"},el("span",{class:"k"},"Tratativa do gestor · "+(a.tratado_por_nome||"—")+" · "+fmt(a.tratado_em)),
