@@ -42,7 +42,7 @@ table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
 .tv td.i{font-style:italic}
 .tv td.ton{background:var(--ton)}
 .tv tr.g td{font-weight:700;text-align:left;padding:8px 6px 2px;border-right:none}
-.tv td.lh{font-weight:700} .tv td.kg{color:var(--muted)} .tv td.ky{color:var(--yellow)} .tv td.kr{color:var(--red)} .tv td.kgn{color:var(--green)}
+.tv td.lh{font-weight:700} .tv td.meta{color:var(--green)} .tv td.kg{color:var(--muted)} .tv td.ky{color:var(--yellow)} .tv td.kr{color:var(--red)} .tv td.kgn{color:var(--green)}
 .chart{width:100%;position:relative}
 .chart svg{display:block;width:100%;height:auto;overflow:visible}
 .chart text{font-family:var(--font);fill:var(--ink)}
@@ -74,7 +74,7 @@ table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
   <div class="grid">
     <div class="col">
       <section class="card"><h2>Acompanhamento por colhedora</h2>
-        <div class="tw"><table class="tv"><thead><tr><th>Frotas</th><th>Litros</th><th>Horas</th><th>L/h</th><th>Toneladas</th><th>L/t</th><th>% Ocioso</th><th>Paradas</th></tr></thead><tbody id="tab"></tbody></table></div>
+        <div class="tw"><table class="tv"><thead><tr><th>Frotas</th><th>Litros</th><th>Horas</th><th>L/h</th><th>Meta L/h</th><th>Toneladas</th><th>L/t</th><th>% Ocioso</th><th>Paradas</th></tr></thead><tbody id="tab"></tbody></table></div>
       </section>
     </div>
 
@@ -162,9 +162,9 @@ document.getElementById('periodo').textContent='PERÍODO '+D.periodo;
 /* tabela */
 const kc=v=>v==null?'':(v<=K.meta?'kgn':(v<=1.15?'kg':(v<=1.5?'ky':'kr')));
 const tb=document.getElementById('tab');
-D.tabela.forEach(g=>{const r=tb.insertRow();r.className='g';const c=r.insertCell();c.colSpan=8;c.textContent=g.grupo;
+D.tabela.forEach(g=>{const r=tb.insertRow();r.className='g';const c=r.insertCell();c.colSpan=9;c.textContent=g.grupo;
  g.linhas.forEach(x=>{const tr=tb.insertRow();const z=v=>v==null||v===0;
-  [[String(x.frota),''],[z(x.litros)?'':f0(x.litros),'i'],[z(x.horas)?'-':f1(x.horas),''],[x.lh==null?'':f2(x.lh),'i lh '+(x.lh<=K.meta_lh?'kgn':'kr')],
+  [[String(x.frota),''],[z(x.litros)?'':f0(x.litros),'i'],[z(x.horas)?'-':f1(x.horas),''],[x.lh==null?'':f2(x.lh),'i lh '+(x.lh<=K.meta_lh?'kgn':'kr')],[x.lh==null?'':f2(K.meta_lh),'meta'],
    [x.ton==null?'':f2(x.ton),'ton'],[x.lt==null?'':f2(x.lt),'i '+kc(x.lt)],[x.pct==null?'':pc(x.pct,1),x.pct!=null&&x.pct>D.meta_oc?'kr':''],[x.paradas==null?'':f0(x.paradas),'i']]
   .forEach(([t,cl])=>{const td=tr.insertCell();td.textContent=t;if(cl)td.className=cl})})});
 /* barras verticais com rótulo em cima (estilo Power BI) */
