@@ -437,7 +437,7 @@ tr.inativo .status-dot{background:var(--muted)}
     $("whoRole").textContent=PAPEL[perfil.papel]||perfil.papel;
     $("whoSetor").textContent=todos?"Todos os setores":perfil.setores.join(" · ");
     $("tUsuarios").hidden=perfil.papel!=="admin";
-    const podeRegistrar=perfil.papel!=="rh";
+    const podeRegistrar=perfil.papel==="operador"||perfil.papel==="admin";
     $("fNovo").hidden=!podeRegistrar;$("mainAlertas").classList.toggle("solo",!podeRegistrar);
     const s=$("iSetor"),q=$("qSetor");
     s.replaceChildren(el("option",{value:""},"Selecione…"),...perfil.setores.map(x=>el("option",{value:x},x)));
