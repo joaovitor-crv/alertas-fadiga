@@ -93,7 +93,7 @@ table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
         </div>
       </section>
       <section class="card"><h3>Evolução da média de consumo (litros por tonelada)</h3>
-        <div class="cb"><div class="leg"><span><i style="background:var(--navy)"></i>Média</span><span><i style="background:var(--green)"></i>Meta</span></div><div class="chart" id="c-lt"></div></div>
+        <div class="cb"><div class="leg"><span><i style="background:var(--navy)"></i>Média</span></div><div class="chart" id="c-lt"></div></div>
       </section>
       <section class="card"><h3>Consumo diário (litros) <span id="lit-media"></span></h3>
         <div class="cb"><div class="chart" id="c-lit"></div></div>
@@ -121,7 +121,7 @@ table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
   <div class="foot"><b>Regras e observações</b>
     <ul>
       <li>Litros: abastecimento (postos 625xx e 225xx); toneladas: balança, peso líquido em kg (coluna M); horas, motor ocioso e RPM: monit.</li>
-      <li>L/t = litros ÷ toneladas, só com colhedoras que têm abastecimento e pesagem. Meta 1,00 L/t: verde até 1,00; cinza 1,01–1,15; amarelo 1,16–1,50; vermelho acima de 1,50.</li>
+      <li>L/t = litros ÷ toneladas, só com colhedoras que têm abastecimento e pesagem.</li>
       <li>Motor ocioso = estado PARADA com motor ligado (monit). Cada parada é uma sequência contínua de leituras paradas com motor ligado; de cada parada são descontados 90 segundos (paradas de até 90 s não contam). Paradas = total de paradas com motor ligado no período. Nas colhedoras, 850 RPM é a marcha lenta real e conta como motor ligado. % ocioso = horas ociosas ÷ horas de motor ligado; meta 10%.</li>
       <li>Horas = horímetro do abastecimento: maior leitura do período − maior leitura do último dia de abastecimento antes do período. L/h = litros ÷ essas horas. Meta 32,00 L/h: verde até a meta, vermelho acima. Motor ocioso e % ocioso continuam calculados pelo monit.</li>
       <li>Turnos: A 07–15h, B 15–23h, C 23–07h.</li>
@@ -165,7 +165,7 @@ const tb=document.getElementById('tab');
 D.tabela.forEach(g=>{const r=tb.insertRow();r.className='g';const c=r.insertCell();c.colSpan=9;c.textContent=g.grupo;
  g.linhas.forEach(x=>{const tr=tb.insertRow();const z=v=>v==null||v===0;
   [[String(x.frota),''],[z(x.litros)?'':f0(x.litros),'i'],[z(x.horas)?'-':f1(x.horas),''],[x.lh==null?'':f2(x.lh),'i lh '+(x.lh<=K.meta_lh?'kgn':'kr')],[x.lh==null?'':f2(K.meta_lh),'meta'],
-   [x.ton==null?'':f2(x.ton),'ton'],[x.lt==null?'':f2(x.lt),'i '+kc(x.lt)],[x.pct==null?'':pc(x.pct,1),x.pct!=null&&x.pct>D.meta_oc?'kr':''],[x.paradas==null?'':f0(x.paradas),'i']]
+   [x.ton==null?'':f2(x.ton),'ton'],[x.lt==null?'':f2(x.lt),'i'],[x.pct==null?'':pc(x.pct,1),x.pct!=null&&x.pct>D.meta_oc?'kr':''],[x.paradas==null?'':f0(x.paradas),'i']]
   .forEach(([t,cl])=>{const td=tr.insertCell();td.textContent=t;if(cl)td.className=cl})})});
 /* barras verticais com rótulo em cima (estilo Power BI) */
 function vbars(id,rows,opt){const box=document.getElementById(id);const W=opt.w||560,H=opt.h||150,top=26,bot=opt.bot||40;
@@ -187,14 +187,14 @@ function hbars(id,rows,opt){const box=document.getElementById(id);const W=opt.w|
 /* linha com meta */
 function linha(id,rows,meta,opt){const box=document.getElementById(id);const W=opt.w||560,H=opt.h||120,l=30,r=40,top=24,bot=26;
  const s=svg(box,W,H);const n=rows.length;const xs=i=>n===1?(l+W-r)/2:l+(W-l-r)*i/(n-1);
- const vals=rows.map(d=>d.v).concat([meta]);const lo=Math.min(...vals)*opt.lo,hi=Math.max(...vals)*opt.hi;const ys=v=>H-bot-(H-top-bot)*(v-lo)/(hi-lo);
+ const vals=rows.map(d=>d.v).concat(meta==null?[]:[meta]);const lo=Math.min(...vals)*opt.lo,hi=Math.max(...vals)*opt.hi;const ys=v=>H-bot-(H-top-bot)*(v-lo)/(hi-lo);
  if(opt.area&&n>1){el('path',{d:`M${xs(0)},${H-bot} `+rows.map((d,i)=>`L${xs(i)},${ys(d.v)}`).join(' ')+` L${xs(n-1)},${H-bot}Z`,fill:'#22378c',opacity:.35},s)}
  if(opt.area&&n===1){el('rect',{x:xs(0)-30,y:ys(rows[0].v),width:60,height:H-bot-ys(rows[0].v),fill:'#22378c',opacity:.25},s)}
- el('line',{x1:l,x2:W-r,y1:ys(meta),y2:ys(meta),stroke:'#2e7d32','stroke-width':3},s);
- el('text',{x:W-r+4,y:ys(meta)-4,'font-size':12,'font-weight':700,fill:'#2e7d32'},s,opt.fmt(meta));
+ if(meta!=null){el('line',{x1:l,x2:W-r,y1:ys(meta),y2:ys(meta),stroke:'#2e7d32','stroke-width':3},s);
+ el('text',{x:W-r+4,y:ys(meta)-4,'font-size':12,'font-weight':700,fill:'#2e7d32'},s,opt.fmt(meta));}
  if(n>1)el('path',{d:rows.map((d,i)=>`${i?'L':'M'}${xs(i)},${ys(d.v)}`).join(' '),fill:'none',stroke:'#22378c','stroke-width':2.5,'stroke-dasharray':opt.area?'7 4':''},s);
  rows.forEach((d,i)=>{const c=el('circle',{cx:xs(i),cy:ys(d.v),r:5,fill:'#22378c'},s);hover(c,box,`${d.l}: ${opt.fmt(d.v)}`);
-  el('circle',{cx:xs(i),cy:ys(meta),r:4,fill:'#2e7d32'},s);
+  if(meta!=null)el('circle',{cx:xs(i),cy:ys(meta),r:4,fill:'#2e7d32'},s);
   el('text',{x:xs(i),y:opt.below?ys(d.v)+20:ys(d.v)-9,'text-anchor':'middle','font-size':13,'font-weight':700},s,opt.fmt(d.v));
   el('text',{x:xs(i),y:H-4,'text-anchor':'middle','font-size':12},s,d.l);});}
 
@@ -214,7 +214,7 @@ const to=document.getElementById('t-oc');D.oc_tab.forEach(r=>{const tr=to.insert
 linha('c-ocdia',D.oc_dia,D.meta_oc,{w:380,h:120,fmt:v=>NF(0)(v*100)+'%',lo:0,hi:1.25,area:true});
 
 /* L/t e litros */
-linha('c-lt',D.lt_dia,K.meta,{w:600,h:110,fmt:f2,lo:.85,hi:1.08});
+linha('c-lt',D.lt_dia,null,{w:600,h:110,fmt:f2,lo:.85,hi:1.08});
 const lm=D.litros_dia.reduce((a,r)=>a+r.v,0)/D.litros_dia.length;document.getElementById('lit-media').textContent=f0(lm);
 vbars('c-lit',D.litros_dia,{w:600,h:150,fmt:f0,bw:40,bot:28,line:lm,scale:.92,color:r=>r.v>lm?'#d64550':'#2e7d32'});
 
